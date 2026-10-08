@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DeepSeek Balance",
+    "description": "Shows the remaining DeepSeek platform balance under the composer and on its own settings page, and gives the agent a deepseek_balance tool."
+  }
+}
