@@ -33,16 +33,13 @@ window.__ModuleLoader__.load({
     const en = {
       title: 'DeepSeek balance',
       description:
-        'Remaining DeepSeek platform credit: the recharge wallet and any separate bonus credit, with total spend.',
+        'Remaining DeepSeek platform credit: the recharge wallet and any separate bonus credit.',
       refresh: 'Refresh',
       loading: 'Loading balance…',
       unavailable: 'Balance unavailable',
       remaining: 'Remaining',
-      bonus: 'Bonus',
-      spent: 'Spent',
       wallet: 'Wallet',
       balance: 'Balance',
-      total: 'Total',
       updated: 'Updated',
       credential: 'Credential',
       endpoint: 'Endpoint',
@@ -50,7 +47,6 @@ window.__ModuleLoader__.load({
       behind: 'behind',
       lastError: 'Last error',
       hint: 'The reading uses the DeepSeek sign-in grant the Harness already stored; it needs no API key.',
-      low: 'Low credit',
       signIn: 'Sign in again to refresh the DeepSeek account grant.',
       never: 'never',
       recharge: 'Recharge',
@@ -61,16 +57,13 @@ window.__ModuleLoader__.load({
     const bg = {
       title: 'Баланс в DeepSeek',
       description:
-        'Оставащ кредит в платформата DeepSeek: портфейлът за зареждане и отделният бонус кредит, заедно с общия разход.',
+        'Оставащ кредит в платформата DeepSeek: портфейлът за зареждане и отделният бонус кредит.',
       refresh: 'Обнови',
       loading: 'Зареждане на баланса…',
       unavailable: 'Балансът не е наличен',
-      remaining: 'Оставащи',
-      bonus: 'Бонус',
-      spent: 'Похарчени',
+      remaining: 'Остатък',
       wallet: 'Портфейл',
       balance: 'Баланс',
-      total: 'Общо',
       updated: 'Обновено',
       credential: 'Идентификационни данни',
       endpoint: 'Адрес',
@@ -78,7 +71,6 @@ window.__ModuleLoader__.load({
       behind: 'закъснение',
       lastError: 'Последна грешка',
       hint: 'Данните идват от влизането в DeepSeek, което Harness вече е запазил; не е нужен API ключ.',
-      low: 'Нисък кредит',
       signIn: 'Влезте отново, за да обновите достъпа до акаунта в DeepSeek.',
       never: 'никога',
       recharge: 'Зареждане',
@@ -97,12 +89,10 @@ window.__ModuleLoader__.load({
           __html: `
 .dsb-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 2px 2px 0; font-size: 11px; line-height: 1.4; color: var(--dsw-alias-label-secondary); }
 .dsb-item { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
-.dsb-label { white-space: nowrap; }
 .dsb-amount { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .dsb-amount-ok { color: var(--dsw-alias-state-success-primary); }
 .dsb-amount-low { color: var(--dsw-alias-state-warn-primary); }
 .dsb-amount-critical { color: var(--dsw-alias-state-error-primary); }
-.dsb-spent { white-space: nowrap; }
 .dsb-error { color: var(--dsw-alias-state-error-primary); }
 .dsb-age { color: var(--dsw-alias-state-warn-primary); white-space: nowrap; }
 .dsb-page { display: flex; flex-direction: column; gap: 16px; padding: 4px 2px; color: var(--dsw-alias-label-primary); }
@@ -131,16 +121,15 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Render a preserved platform amount string at display precision.
+     * Render a preserved platform amount string in whole cents.
      * @param amount - the raw balance or cost string.
-     * @returns a compact string, or an em dash when unusable.
+     * @returns a two-decimal string, or an em dash when unusable.
      */
-    function trim(amount) {
+    function cents(amount) {
       if (typeof amount !== 'string' || amount === '') return '–';
       const value = Number(amount);
       if (!Number.isFinite(value)) return amount;
-      const fixed = value.toFixed(4).replace(/\.?0+$/, '');
-      return fixed === '' ? '0' : fixed;
+      return value.toFixed(2);
     }
 
     /**
@@ -280,33 +269,17 @@ window.__ModuleLoader__.load({
       const level = levelOf(amount);
       const age = typeof payload.fetchedAt === 'string' ? Date.now() - Date.parse(payload.fetchedAt) : null;
       const lag = age !== null && Number.isFinite(age) && age > LAG_MS ? age : null;
-      const costs = Array.isArray(payload.costs) ? payload.costs : [];
-      const spent = costs.length === 0 ? null : costs.map((row) => `${row.currency} ${trim(row.amount)}`).join(', ');
-      const bonus = Array.isArray(payload.bonusWallets)
-        ? payload.bonusWallets.filter((row) => Number(row.balance) > 0)
-        : [];
+      // The strip shows one thing only: the remaining balance, in whole cents.
+      const text = `${t('remaining')}: ${payload.balance.currency} ${cents(amount)}`;
       return h(
         'div',
         { className: 'dsb-strip', 'data-component': 'deepseek-balance-strip' },
         h(Styles, null),
         h(
           'span',
-          {
-            className: 'dsb-item',
-            title: `${t('remaining')}: ${payload.balance.currency} ${trim(amount)}${spent === null ? '' : ` — ${t('spent').toLowerCase()} ${spent}`}`,
-          },
-          h('span', { className: 'dsb-label' }, t('title')),
-          h('span', { className: LEVEL_CLASS[level] ?? LEVEL_CLASS.ok }, `${payload.balance.currency} ${trim(amount)}`),
-          level === 'ok' ? null : h('span', { className: 'dsb-amount-low' }, `· ${t('low')}`),
+          { className: 'dsb-item', title: text },
+          h('span', { className: LEVEL_CLASS[level] ?? LEVEL_CLASS.ok }, text),
         ),
-        spent === null ? null : h('span', { className: 'dsb-item dsb-spent' }, `${t('spent')}: ${spent}`),
-        bonus.length === 0
-          ? null
-          : h(
-              'span',
-              { className: 'dsb-item' },
-              `${t('bonus')}: ${bonus.map((row) => `${row.currency} ${trim(row.balance)}`).join(', ')}`,
-            ),
         payload.stale === true ? h('span', { className: 'dsb-error' }, t('stale')) : null,
         lag === null ? null : h('span', { className: 'dsb-age' }, `${t('behind')} ${Math.round(lag / 60000)}m`),
       );
@@ -321,13 +294,12 @@ window.__ModuleLoader__.load({
       const payload = state.payload;
       const normal = payload !== null && Array.isArray(payload.normalWallets) ? payload.normalWallets : [];
       const bonus = payload !== null && Array.isArray(payload.bonusWallets) ? payload.bonusWallets : [];
-      const costs = payload !== null && Array.isArray(payload.costs) ? payload.costs : [];
       const updated = payload?.fetchedAt == null ? t('never') : new Date(payload.fetchedAt).toLocaleString();
       const primary = payload?.balance ?? null;
       const errorText = state.error ?? payload?.error ?? null;
       const signedOut = typeof errorText === 'string' && errorText.indexOf('sign-in was rejected') !== -1;
 
-      /** One currency table, used for the recharge wallet, bonus, and spend. */
+      /** One currency table: the recharge wallet and any bonus credit. */
       const table = (heading, rows, field, valueLabel) =>
         rows.length === 0
           ? null
@@ -345,7 +317,7 @@ window.__ModuleLoader__.load({
                   'div',
                   { className: 'dsb-row', key: `${field}-${index}` },
                   h('span', null, row.currency),
-                  h('span', { className: 'dsb-value' }, trim(row[field])),
+                  h('span', { className: 'dsb-value' }, cents(row[field])),
                 ),
               ),
             );
@@ -372,13 +344,12 @@ window.__ModuleLoader__.load({
               h(
                 'span',
                 { className: `dsb-hero-amount ${LEVEL_COLOR[levelOf(primary.amount)] ?? ''}` },
-                `${primary.currency} ${trim(primary.amount)}`,
+                `${primary.currency} ${cents(primary.amount)}`,
               ),
               h('span', { className: 'dsb-hero-caption' }, `${t('remaining')} · ${t('recharge')}`),
             ),
         table(t('recharge'), normal, 'balance', t('balance')),
         table(t('promotional'), bonus, 'balance', t('balance')),
-        table(t('spent'), costs, 'amount', t('total')),
         h(
           'div',
           { className: 'dsb-meta' },
